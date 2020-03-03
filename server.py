@@ -1,5 +1,6 @@
 import socket
 import select
+import pickle
 
 HEADER_LENGTH = 20
 
@@ -30,12 +31,14 @@ server_socket.listen()
 sockets_list = [server_socket]
 
 
-# List of connected clients - socket as a key, username as data
+# List of connected clients - clientsocket as a key, username as value
 clients = {}
 
 # List of usernames
-
 usernameList = []
+
+# List if usernames already chatting so not available
+busyUsers = []
 
 print(f'Welcome to secure chat server. We are listening on {IP}:{PORT}...')
 
@@ -74,7 +77,18 @@ def getNewUser(client_socket):
         return False
 
 
-def getMessage(client_socket):
+def checkNewUser(username):
+    newUserlist = []
+    for users in usernameList:
+        if username != users:
+            newUserlist.append(users)
+
+    return newUserlist
+
+    # now we shall wait for new user to connect
+
+
+def getRequest(client_socket):
 
     try:
         message_header = client_socket.recv(HEADER_LENGTH)
@@ -83,12 +97,22 @@ def getMessage(client_socket):
         if not len(message_header):
             return False
 
-        message_length, sendToUsername = message_header.decode('utf-8').strip()
+        message_length = int(message_header.decode('utf-8').strip())
 
-        messageReceived = client_socket.recv(message_length)
-        print({'header': message_header,
-               'sendToUser': sendToUsername, 'data': messageReceived})
-        return {'header': message_header, 'sendToUser': sendToUsername, 'data': messageReceived}
+        message_type = client_socket.recv(message_length)
+        message_type = message_type.decode('utf-8')
+
+        if(message_type == "sendlist"):
+            newUserlist = checkNewUser(clients[client_socket])
+            msg = pickle.dumps(newUserlist)
+            client_socket.send(msg)
+            return "listSent"
+
+        # else if (message)
+        # messageReceived = client_socket.recv(message_length)
+        # print({'header': message_header,
+        #        'sendToUser': sendToUsername, 'data': messageReceived})
+        # return {'header': message_header, 'sendToUser': sendToUsername, 'data': messageReceived}
     except Exception as e:
         raise e
 
@@ -104,7 +128,6 @@ while True:
             new_user = getNewUser(client_socket)
 
             if new_user is False:
-                print('here')
                 continue
 
             sockets_list.append(client_socket)
@@ -115,12 +138,7 @@ while True:
             print(f"{username} has joined the chatroom")
 
         else:
-            # Receive message and send it to the username defined in header
-            message = getMessage(selectedSocket)
-            receiver = message['sendToUser']
-
-            for client_socket, user in clients.items():
-                if user == receiver:
-                    encodedMessage = f"{len(username):<{HEADER_LENGTH}}".encode(
-                        'utf-8')
-                    client_socket.send()
+            # Receive message from sockets and check type
+            message = getRequest(selectedSocket)
+            # if(message == 'listSent'):
+            #     print('wadiya')
