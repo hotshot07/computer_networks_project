@@ -1,126 +1,71 @@
 import socket
-import pickle
+import errno
 import time
 import sys
+import select
+import signal
 
-HEADER_LENGTH = 20
+HEADER_LENGTH = 10
+RECVB = 2048
 
 IP = "127.0.0.1"
 PORT = 1234
-print(f'Welcome to the secure chat app!')
 my_username = input("Username: ")
 
-# Creating a socket object server_socket
-# socket.AF_INET refers to the IPv4 protocol
-# socket.SOCK_STREAM  refers to the TCP protocol
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Connect to a given ip and port
 client_socket.connect((IP, PORT))
 
-# Set connection to non-blocking state, so .recv() call won't block, just return some exception we'll handle
-client_socket.setblocking(False)
+client_socket.setblocking(True)
 
-# This function is used to send username to the server once the client is created
-# ---------Format-----------
-# HEADER: username_length
-# MESSAGE: username
+client_socket.settimeout(2)
 
+username = my_username.encode('utf-8')
+username_header = f"{len(username):<{HEADER_LENGTH}}".encode('utf-8')
+client_socket.send(username_header + username)
 
-def sendUsernameToServer(my_username):
-    username = my_username.encode('utf-8')
-    username_header = f"{len(username):<{HEADER_LENGTH}}".encode('utf-8')
-    client_socket.send(username_header + username)
+print("Connected to remote host. You can start sending messages")
+sys.stdout.write("\033[34m" + '\n[Me :] ' + "\033[0m"); sys.stdout.flush()
 
 
-sendUsernameToServer(my_username)
+def sigint_handler(signum, frame):
+    print('\n user interrupt ! shutting down')
+    print("[info] shutting down NEURON \n\n")
+    sys.exit()
 
 
-# Get greetings from the server and list of cliets to connect
+signal.signal(signal.SIGINT, sigint_handler)
 
-
-def startConnection(receiver):
-    # -------- Format-----------
-    # Header: len(receiver)
-    # Message: Connection receiver my_username
-
-    message = f"Connection".encode('utf-8')
-    body = f"{receiver} {my_username}".encode('utf-8')
-    message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
-    client_socket.send(message_header + message + body)
-    time.sleep(10)
-
-
-def sendRequestForChatList():
-    message = "sendlist".encode('utf-8')
-    message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
-    client_socket.send(message_header + message)
-    # Wait for server to respond
-    time.sleep(1)
-    # Receive the list from server
-    listing = client_socket.recv(2048)
-    listing = pickle.loads(listing)
-    if len(listing) == 0:
-        print("No new users to connect, Will try again in 10 seconds")
-    else:
-        print("The user(s) available for chatting are:", *listing)
-        receiver = input("Who would you like to chat with: ")
-        if receiver in listing:
-            startConnection(receiver)
-            return receiver
-        else:
-            print("Not a valid username")
-
-    return 0
-
-
-def getUserToConnect():
-    toChat = False
-    while toChat == False:
-        # This receives the list of clients to connect to
-        try:
-            receiver = sendRequestForChatList()
-            if receiver == 0:
-                time.sleep(10)
-            else:
-                toChat = True
-                return receiver
-
-        except Exception as e:
-            raise e
-
-
-def encryptedChatting(receiver):
-    while True:
-        message = input(f"{my_username}: ").encode('utf-8')
-        message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
-        client_socket.send(message_header + message)
-
-        try:
-            while True:
-                messageReceived = client_socket.recv(1024)
-                if not len(messageReceived):
-                    print('Connection closed by the server')
-                    sys.exit()
-
-                messageReceived = messageReceived.decode('utf-8')
-
-                # Print message
-                print(f'{username} > {messageReceived}')
-
-        except IOError as e:
-            if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
-                print('Reading error: {}'.format(str(e)))
-                sys.exit()
-
-        continue
-
-    return
-
+socket_list_client = [sys.stdin, client_socket]
 
 while True:
-    receiver = getUserToConnect()
-    encryptedChatting(receiver)
+    readSockets, _, exceptionSockets = select.select(
+        socket_list_client, [], socket_list_client)
 
-# while True:
-    # client_socket.recv(HEADER_LENGTH)
+    for selectedSocket in socket_list_client:
+        if selectedSocket == client_socket:
+            try:
+                data = client_socket.recv(RECVB)
+
+                if not data:
+                    print("Disconnected")
+                    sys.exit()
+
+                else:
+                    data = data.decode('utf-8')
+                    sys.stdout.write(data)
+                    sys.stdout.write(
+                        "\033[34m" + '\n[Me :] ' + "\033[0m"); sys.stdout.flush()
+
+            except Exception as e:
+                continue
+
+        else:
+            try:
+                message = sys.stdin.readline()
+                message = message.encode('utf-8')
+                client_socket.send(message)
+                sys.stdout.write("\033[34m" + '\n[Me :] ' +
+                                 "\033[0m"); sys.stdout.flush()
+            except Exception as e:
+                continue
