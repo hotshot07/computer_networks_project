@@ -5,44 +5,72 @@ import sys
 import select
 import signal
 
+# The length of the header used to send the username
 HEADER_LENGTH = 10
+
+# The number of bytes of data we can send and receive
 RECVB = 2048
 
+# The IP and port of the server
 IP = "127.0.0.1"
-PORT = 1234
+PORT = 42069
+
+# Choose a username that reflects your personality unlike hotshot07
 my_username = input("Username: ")
 
+# Making a clientsocket object and binding it
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+# Connecting it to the server
 client_socket.connect((IP, PORT))
 
+# Set blocking or non-blocking mode of the socket: if flag is 0,
+# the socket is set to non-blocking, else to blocking mode. Initially all sockets are in
+# blocking mode. In non-blocking mode, if a recv() call doesn’t find any data,
+# or if a send() call can’t immediately dispose of the data, a error exception is raised;
+# in blocking mode, the calls block until they can proceed. s.setblocking(0)
+# is equivalent to s.settimeout(0.0); s.setblocking(1) is equivalent to s.settimeout(None).
 client_socket.setblocking(True)
 
 client_socket.settimeout(2)
 
-username = my_username.encode('utf-8')
-username_header = f"{len(username):<{HEADER_LENGTH}}".encode('utf-8')
-client_socket.send(username_header + username)
+# Function to send username to server
+
+
+def sendUsernameToServer(my_username):
+    username = my_username.encode('utf-8')
+    username_header = f"{len(username):<{HEADER_LENGTH}}".encode('utf-8')
+    client_socket.send(username_header + username)
+
+
+# Using the above function
+sendUsernameToServer(my_username)
 
 print("Connected to remote host. You can start sending messages")
-sys.stdout.write("\033[34m" + '\n[Me :] ' + "\033[0m"); sys.stdout.flush()
+
+# Handling the Ctrl+C in a cool way
 
 
 def sigint_handler(signum, frame):
-    print('\n user interrupt ! shutting down')
-    print("[info] shutting down NEURON \n\n")
+    print('User interrupt. Shutting down')
     sys.exit()
 
 
 signal.signal(signal.SIGINT, sigint_handler)
 
+
+# Socketlist over which select would iterate
 socket_list_client = [sys.stdin, client_socket]
 
+
 while True:
+    # reading the sockets for any I/O using select library
     readSockets, _, exceptionSockets = select.select(
         socket_list_client, [], socket_list_client)
 
     for selectedSocket in socket_list_client:
+
+        # If selectedSocket is the clientsocket, we have received a message
         if selectedSocket == client_socket:
             try:
                 data = client_socket.recv(RECVB)
@@ -51,21 +79,25 @@ while True:
                     print("Disconnected")
                     sys.exit()
 
+                # Printing it on the terminal
                 else:
                     data = data.decode('utf-8')
                     sys.stdout.write(data)
-                    sys.stdout.write(
-                        "\033[34m" + '\n[Me :] ' + "\033[0m"); sys.stdout.flush()
 
             except Exception as e:
                 continue
 
         else:
             try:
+                # else we can send a message
+                # should probably use asyncio library to make it asynchronus
+                # Will do in next commit as herein lies the issue
+                print(f'{my_username}: ')
                 message = sys.stdin.readline()
+
+                # Encoding the message and sending it to server
                 message = message.encode('utf-8')
                 client_socket.send(message)
-                sys.stdout.write("\033[34m" + '\n[Me :] ' +
-                                 "\033[0m"); sys.stdout.flush()
+
             except Exception as e:
                 continue

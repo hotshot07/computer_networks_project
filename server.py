@@ -3,43 +3,58 @@ import select
 import signal
 import sys
 
+# The length of the header used to get the username
 HEADER_LENGTH = 10
 
+# The number of bytes of data we can send and receive
 RECVB = 2048
 
+# The IP and port of the server
 IP = "127.0.0.1"
-PORT = 1234
+PORT = 42069
 
+# Creating a server socket with TCP/IP and IPv4 protocols
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+# Setting socket options
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+# Binding the socket and IP
 server_socket.bind((IP, PORT))
 
+# Listening to new connections
 server_socket.listen()
 
+# Creating a list of sockets
 sockets_list = [server_socket]
 
-# List of connected clients - socket as a key, user_name as data
+# Dictionary of connected clients - socket as a key, username as data
 clients = {}
 
+# List of all the usernames
 usernameList = []
 
+# Not very 'secure' at the moment. Will be in near future though
 print(f'Welcome to secure chat server. We are listening on {IP}:{PORT}...')
+
+# Handling the Ctrl+C in a cool way
 
 
 def sigint_handler(signum, frame):
-    print('\n user interrupt ! shutting down')
-    print("[info] shutting down NEURON \n\n")
+    print('User interrupt. Shutting down')
     sys.exit()
 
 
 signal.signal(signal.SIGINT, sigint_handler)
 
 
+# Function to get a new user
+# Format of this message
+# HEADER: (length of the username)
+# BODY: Username
 def getNewUser(client_socket):
     try:
-        # Receive our "header" containing message length
+        # Receiving our "header" containing message length
         message_header = client_socket.recv(HEADER_LENGTH)
 
         # If we received no data client has closed a connection and we can return false
@@ -55,13 +70,11 @@ def getNewUser(client_socket):
         return {'header': message_header, 'data': dataReceived}
 
     except:
-
-        # If we are here, client closed connection violently, for example by pressing ctrl+c on his script
-        # or just lost his connection
-        # socket.close() also invokes socket.shutdown(socket.SHUT_RDWR) what sends information about closing the socket (shutdown read/write)
-        # and that's also a cause when we receive an empty message
         return False
 
+
+# Function to send message to all the clients, except the server
+# and the socket who sent the message
 
 def sendToAll(selectedSocket, data):
     for socket in sockets_list:
@@ -76,11 +89,21 @@ def sendToAll(selectedSocket, data):
     return
 
 
+# Main server
 while True:
+    # Select checks for I/O in the given sockets
+    # We pass 3 parameters, the list from which we want to read
+    # the list we want to write to (empty list in this case)
+    # and an exception list
     readSockets, _, exceptionSockets = select.select(
         sockets_list, [], sockets_list)
 
+    # iterating over the read list
     for selectedSocket in readSockets:
+
+        # If it is a server socket, we have received a new connection!
+        # We call the get new user function to get the username sent by the
+        # client and store in usernameList
 
         if selectedSocket == server_socket:
             client_socket, client_address = server_socket.accept()
@@ -96,26 +119,29 @@ while True:
 
             print(f"{username} has joined the chatroom")
 
+        # Or else, someone has sent a message. We now have to get the message and
+        # send it to all the clients on the chatlist
+
         else:
 
             try:
+                # Try getting the data
                 data = selectedSocket.recv(RECVB)
+
+                # If we get the data, send to all the clients
                 if data:
                     sendToAll(selectedSocket, data)
-                    data = data.decode('utf-8')
-                    print(data)
 
                 else:
+                    # If we didn't receive any data, connection has been closed by the client
                     print('Closed connection from: {}'.format(
                         clients[selectedSocket]))
 
                     sockets_list.remove(selectedSocket)
 
-                    # Remove from our list of users
                     del clients[selectedSocket]
 
                     continue
 
             except:
-                print('Closed connection from: {}'.format(
-                    clients[selectedSocket]))
+                continue
