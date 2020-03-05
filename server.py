@@ -1,6 +1,8 @@
 import socket
 import select
 import pickle
+import sys
+import time
 
 HEADER_LENGTH = 20
 
@@ -39,6 +41,8 @@ usernameList = []
 
 # List if usernames already chatting so not available
 busyUsers = []
+
+thinking = True
 
 print(f'Welcome to secure chat server. We are listening on {IP}:{PORT}...')
 
@@ -97,27 +101,60 @@ def getRequest(client_socket):
         if not len(message_header):
             return False
 
-        message_length = int(message_header.decode('utf-8').strip())
-
-        message_type = client_socket.recv(message_length)
+        message_length = message_header.decode('utf-8').strip()
+        message_type = client_socket.recv(int(message_length))
         message_type = message_type.decode('utf-8')
 
-        if(message_type == "sendlist"):
+        if message_type == "sendlist":
             newUserlist = checkNewUser(clients[client_socket])
             msg = pickle.dumps(newUserlist)
             client_socket.send(msg)
             return "listSent"
 
-        # else if (message)
-        # messageReceived = client_socket.recv(message_length)
-        # print({'header': message_header,
-        #        'sendToUser': sendToUsername, 'data': messageReceived})
-        # return {'header': message_header, 'sendToUser': sendToUsername, 'data': messageReceived}
+        if message_type == "Connection":
+            recvuser = client_socket.recv(20)
+            recvuser = recvuser.decode('utf-8')
+            receiver, sender = recvuser.split()
+            return {'Receiver': receiver, 'Sender': sender}
+
+            # else if (message)
+            # messageReceived = client_socket.recv(message_length)
+            # print({'header': message_header,
+            #        'sendToUser': sendToUsername, 'data': messageReceived})
+            # return {'header': message_header, 'sendToUser': sendToUsername, 'data': messageReceived}
     except Exception as e:
         raise e
 
 
-while True:
+def getChatMessage(selectedSocket):
+    message = selectedSocket.recv(1024)
+    return message
+
+
+def startChat(recvsend):
+    client1 = recvsend['Receiver']
+    client2 = recvsend['Sender']
+    chatters = []
+    for k, v in clients.items():
+        if v == client1 or v == client2:
+            chatters.append(k)
+
+    time.sleep(10)
+
+    while True:
+        readSockets, _, exceptionSockets = select.select(
+            chatters, [], chatters)
+
+        for selectedSocket in chatters:
+
+            message = getChatMessage(selectedSocket)
+
+            for socks in chatters:
+                if selectedSocket != socks:
+                    socks.send(message)
+
+
+while thinking:
     readSockets, _, exceptionSockets = select.select(
         sockets_list, [], sockets_list)
 
@@ -140,5 +177,17 @@ while True:
         else:
             # Receive message from sockets and check type
             message = getRequest(selectedSocket)
-            # if(message == 'listSent'):
-            #     print('wadiya')
+
+            if message is False:
+                print('Closed connection from: {}'.format(
+                    clients[selectedSocket]))
+
+                sockets_list.remove(selectedSocket)
+
+                # Remove from our list of users
+                del clients[selectedSocket]
+
+                continue
+
+            if isinstance(message, dict):
+                startChat(message)
