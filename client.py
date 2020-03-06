@@ -6,7 +6,7 @@ import select
 import signal
 
 # The length of the header used to send the username
-HEADER_LENGTH = 10
+HEADER_LENGTH = 20
 
 # The number of bytes of data we can send and receive
 RECVB = 2048
@@ -30,9 +30,7 @@ client_socket.connect((IP, PORT))
 # or if a send() call can’t immediately dispose of the data, a error exception is raised;
 # in blocking mode, the calls block until they can proceed. s.setblocking(0)
 # is equivalent to s.settimeout(0.0); s.setblocking(1) is equivalent to s.settimeout(None).
-client_socket.setblocking(True)
-
-client_socket.settimeout(2)
+client_socket.setblocking(False)
 
 # Function to send username to server
 
@@ -48,56 +46,103 @@ sendUsernameToServer(my_username)
 
 print("Connected to remote host. You can start sending messages")
 
-# Handling the Ctrl+C in a cool way
+
+def sendMessageToServer(message):
+    message = message.encode('utf-8')
+    message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
+    client_socket.send(message_header + message)
+    return
 
 
-def sigint_handler(signum, frame):
-    print('User interrupt. Shutting down')
-    sys.exit()
+def receiveMessage():
+    data = client_socket.recv(HEADER_LENGTH)
 
+    if not data:
+        print('Connection closed by the server')
+        sys.exit()
 
-signal.signal(signal.SIGINT, sigint_handler)
-
-
-# Socketlist over which select would iterate
-socket_list_client = [sys.stdin, client_socket]
+    messageLength, username = data.decode('utf-8').split()
+    message = client_socket.recv(int(messageLength))
+    message = message.decode('utf-8')
+    return {"Username": username, "Message": message}
 
 
 while True:
-    # reading the sockets for any I/O using select library
-    readSockets, _, exceptionSockets = select.select(
-        socket_list_client, [], socket_list_client)
 
-    for selectedSocket in socket_list_client:
+    # Wait for user to input a message
+    message = input(f'{my_username} > ')
 
-        # If selectedSocket is the clientsocket, we have received a message
-        if selectedSocket == client_socket:
-            try:
-                data = client_socket.recv(RECVB)
+    # If message is not empty - send it
+    if message:
+        sendMessageToServer(message)
 
-                if not data:
-                    print("Disconnected")
-                    sys.exit()
+    try:
+        # iterating over received messages, if we got any
+        while True:
+            data = receiveMessage()
+            if data:
+                print(f" {data['Username']} > {data['Message']}")
 
-                # Printing it on the terminal
-                else:
-                    data = data.decode('utf-8')
-                    sys.stdout.write(data)
+    except IOError as e:
+        # This is normal on non blocking connections - when there are no incoming data error is going to be raised
+        # Some operating systems will indicate that using AGAIN, and some using WOULDBLOCK error code
+        # We are going to check for both - if one of them - that's expected, means no incoming data, continue as normal
+        # If we got different error code - something happened
+        if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
+            print('Reading error: {}'.format(str(e)))
+            sys.exit()
 
-            except Exception as e:
-                continue
+        # We just did not receive anything
+        continue
 
-        else:
-            try:
-                # else we can send a message
-                # should probably use asyncio library to make it asynchronus
-                # Will do in next commit as herein lies the issue
-                print(f'{my_username}: ')
-                message = sys.stdin.readline()
 
-                # Encoding the message and sending it to server
-                message = message.encode('utf-8')
-                client_socket.send(message)
+# def sigint_handler(signum, frame):
+#     print('User interrupt. Shutting down')
+#     sys.exit()
 
-            except Exception as e:
-                continue
+
+# signal.signal(signal.SIGINT, sigint_handler)
+
+# Socketlist over which select would iterate
+#socket_list_client = [sys.stdin, client_socket]
+
+# while True:
+#     # reading the sockets for any I/O using select library
+#     readSockets, _, exceptionSockets = select.select(
+#         socket_list_client, [], socket_list_client)
+
+#     for selectedSocket in socket_list_client:
+
+#         # If selectedSocket is the clientsocket, we have received a message
+#         if selectedSocket == client_socket:
+#             try:
+#                 data = client_socket.recv(RECVB)
+
+#                 if not data:
+#                     print("Disconnected")
+#                     sys.exit()
+
+#                 # Printing it on the terminal
+#                 else:
+#                     data = data.decode('utf-8')
+#                     print(data)
+#                     # sys.stdout.write(data)
+
+#             except Exception as e:
+#                 continue
+
+#         else:
+#             try:
+#                 # else we can send a message
+#                 # should probably use asyncio library to make it asynchronus
+#                 # Will do in next commit as herein lies the issue
+#                 message = input(f"{my_username}: ")
+#                 print(message)
+#                 sendMessageToServer(message)
+
+#                 # Encoding the message and sending it to server
+#                 message = message.encode('utf-8')
+#                 client_socket.send(message)
+
+#             except Exception as e:
+#                 continue

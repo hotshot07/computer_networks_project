@@ -4,7 +4,7 @@ import signal
 import sys
 
 # The length of the header used to get the username
-HEADER_LENGTH = 10
+HEADER_LENGTH = 20
 
 # The number of bytes of data we can send and receive
 RECVB = 2048
@@ -73,20 +73,58 @@ def getNewUser(client_socket):
         return False
 
 
+# Format of the message
+# HEADER: (length of the message)  username
+# BODY: message by the username
+def encodeTheMessage(selectedSocket, message):
+    username = clients[selectedSocket]
+    message_header = f"{str(len(message)) + ' '+ str(username):<{HEADER_LENGTH}}"
+    message = (message_header + message).encode('utf-8')
+    return message
+
+
 # Function to send message to all the clients, except the server
 # and the socket who sent the message
+def sendToAll(selectedSocket, message):
 
-def sendToAll(selectedSocket, data):
+    message = encodeTheMessage(selectedSocket, message)
+
     for socket in sockets_list:
         if socket != server_socket and socket != selectedSocket:
             try:
-                socket.send(data)
+                socket.send(message)
             except:
                 socket.close()
                 if socket in sockets_list:
                     sockets_list.remove(socket)
 
     return
+
+
+# Function to get a new message
+# Format of this message
+# HEADER: (length of the message)
+# BODY: The message
+def getMessage(selectedSocket):
+    try:
+        # Receiving our "header" containing message length
+        message_header = selectedSocket.recv(HEADER_LENGTH)
+
+        # If we received no data client has closed a connection and we can return false
+        if not len(message_header):
+            return False
+
+        # Convert header to int value
+        message_length = int(message_header.decode('utf-8').strip())
+
+        # Return an object of message header and message data
+        messageReceived = selectedSocket.recv(message_length)
+        messageReceived = messageReceived.decode('utf-8')
+        return messageReceived
+
+    except:
+        return False
+
 
 
 # Main server
@@ -117,7 +155,7 @@ while True:
             clients[client_socket] = username
             usernameList.append(username)
 
-            print(f"{username} has joined the chatroom")
+            print(f"{username} has joined the encrypted chatroom")
 
         # Or else, someone has sent a message. We now have to get the message and
         # send it to all the clients on the chatlist
@@ -125,12 +163,12 @@ while True:
         else:
 
             try:
-                # Try getting the data
-                data = selectedSocket.recv(RECVB)
+                # Try getting the message
+                message = getMessage(selectedSocket)
 
-                # If we get the data, send to all the clients
-                if data:
-                    sendToAll(selectedSocket, data)
+                # If we get the message, send to all the clients
+                if message:
+                    sendToAll(selectedSocket, message)
 
                 else:
                     # If we didn't receive any data, connection has been closed by the client
