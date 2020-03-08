@@ -1,33 +1,46 @@
+# Importing sockets for low level implementation of networks
 import socket
-import select
-import sys
+
+# Importing thread to make it a multithreaded application
 from threading import Thread
 
+# Setting up server_socket to set up TCP/IP and IPv4 protocol and
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Setting up socket options
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+# IP and PORT of the socket
 IP = "127.0.0.1"
 PORT = 42069
 
+# Header length used to receive the username
 HEADER_LENGTH = 10
 
+# Binding the socket
 server_socket.bind((IP, PORT))
 
+# Listening for new connections
 server_socket.listen(100)
 
+# Clients dictionary with client_socket as key, username as data
 clients = {}
 
+# List of client_sockets
 clientList = []
 
+# List to keep track of the threads
 threads = []
 
+
+# Function to get username of the new user that connects to the server
 
 def getNewUser(client_socket):
     try:
         # Receiving our "header" containing message length
         message_header = client_socket.recv(HEADER_LENGTH)
 
-        # If we received no data client has closed a connection and we can return false
+        # If we received no data client has closed a client_socket and we can return false
         if not len(message_header):
             return False
 
@@ -43,6 +56,25 @@ def getNewUser(client_socket):
         return False
 
 
+# Function to remove user from the chatroom
+def removeUser(client_socket):
+    if client_socket in clientList:
+        clientList.remove(client_socket)
+        del clients[client_socket]
+
+
+# Function to send messages to all the clients connected to the chat server
+def sendToAll(message, client_socket):
+    for client in clientList:
+        # Don't send it to from where we receive the message
+        if client != client_socket:
+            try:
+                client.send(message)
+            except:
+                print(f"{clients[client]} has left the application")
+                remove(client)
+
+
 def clientthread(client_socket, client_address):
 
     new_user = getNewUser(client_socket)
@@ -53,11 +85,11 @@ def clientthread(client_socket, client_address):
 
     print(f"{username} has joined the encrypted chatroom")
 
-    username = clients[client_socket]
-    # sends a message to the client whose user object is client_socket
+    # Greeting our beloved client
     client_socket.send(
         f"Welcome to this secure chatroom {username}!".encode('utf-8'))
 
+    # Now check if we got a message
     while True:
         try:
             message = client_socket.recv(2048)
@@ -67,36 +99,21 @@ def clientthread(client_socket, client_address):
                 message_to_send = (username + " > " + message).encode('utf-8')
                 sendToAll(message_to_send, client_socket)
 
-            else:
-                remove(client_socket)
-
         except:
             continue
 
 
-def sendToAll(message, connection):
-
-    for clients in clientList:
-        if clients != connection:
-            try:
-                clients.send(message)
-            except Exception as e:
-                remove(clients)
+# Main Server always running acceptiong new connections
 
 
-def remove(connection):
-    if connection in clientList:
-        clientList.remove(connection)
-
-
-
-# Main Server
 while True:
+    # Accepting the socket and address of the client
     client_socket, client_address = server_socket.accept()
 
+    # Addding client_socket to the list
     clientList.append(client_socket)
 
-    # Creates and individual thread for every user
+    # Creates an individual thread for every user
     process = Thread(target=clientthread, args=[client_socket, client_address])
     process.start()
     threads.append(process)
