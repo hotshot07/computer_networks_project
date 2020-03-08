@@ -4,10 +4,10 @@ import socket
 # Importing select to poll between the user input and received message
 import select
 
-#Getting input from terminal and writing output to terminal
+# Getting input from terminal and writing output to terminal
 import sys
 
-#creating the client_socket object and adding the TCP/IP and IPv4 protocol
+# creating the client_socket object and adding the TCP/IP and IPv4 protocol
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # IP and PORT of the socket
@@ -28,6 +28,8 @@ my_username = input("Username: ")
 # Format
 # Header: length_of_username
 # Body: Username
+
+
 def sendUsernameToServer(my_username):
     username = my_username.encode('utf-8')
     username_header = f"{len(username):<{HEADER_LENGTH}}".encode('utf-8')
@@ -49,10 +51,10 @@ while True:
     for socket in read_sockets:
         # If socket == client_socket, we got a message!
         if socket == client_socket:
-            message = socks.recv(2048)
+            message = socket.recv(2048)
             print(message.decode('utf-8'))
         else:
-            #Else, we can send a message
+            # Else, we can send a message
             message = sys.stdin.readline()
             message = message.encode('utf-8')
             client_socket.send(message)
