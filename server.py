@@ -73,6 +73,7 @@ def getNewUser(client_socket):
 # Function to remove user from the chatroom
 def removeUser(client_socket):
     if client_socket in clientList:
+        print(clientList)
         clientList.remove(client_socket)
         del clients[client_socket]
 
@@ -120,15 +121,20 @@ def clientThread(client_socket, client_address):
 
 # Main Server always running acceptiong new connections
 
-
+index = 0
 while True:
     # Accepting the socket and address of the client
     client_socket, client_address = server_socket.accept()
-
+    index += 1
     # Addding client_socket to the list
     clientList.append(client_socket)
 
     # Creates an individual thread for every user
-    process = Thread(target=clientThread, args=[client_socket, client_address])
+    process = Thread(target=clientThread, args=[
+                     client_socket, client_address])
+
+    # If server is closed, kill all the threads
+    process.daemon = True
+
     process.start()
     threads.append(process)

@@ -66,8 +66,10 @@ while True:
             message = socket.recv(2048)
             if not len(message):
                 print("Connection closed by server")
+                sys.exit()
 
             print(message.decode('utf-8'))
+
         else:
             # Else, we can send a message
             message = sys.stdin.readline()
