@@ -15,7 +15,8 @@ You don’t need to download any separate libraries for it.
 If you’re on a mac, run term.py to open 3 new terminals for testing the app
 
 Run $python3 server.py
-Run in two or more terminals $python3 client.py 
+
+Run $python3 client.py  (in two or more terminals as this is a chatting app)
 
 Known issues: When a user disconnects, the server isn’t able to kill the specific thread
 
