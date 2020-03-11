@@ -4,6 +4,8 @@ import socket
 # Importing thread to make it a multithreaded application
 from threading import Thread
 
+import sys
+
 # Setting up server_socket to set up TCP/IP and IPv4 protocol and
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -32,15 +34,27 @@ clientList = []
 # List to keep track of the threads
 threads = []
 
+# Handling Ctrl+C in a very cool way
+import signal
+
+
+def sigint_handler(signum, frame):
+    print('\n Server Shutting down')
+    server_socket.close()
+    sys.exit()
+
+
+signal.signal(signal.SIGINT, sigint_handler)
 
 # Function to get username of the new user that connects to the server
+
 
 def getNewUser(client_socket):
     try:
         # Receiving our "header" containing message length
         message_header = client_socket.recv(HEADER_LENGTH)
 
-        # If we received no data client has closed a client_socket and we can return false
+        # If we received no data client has closed client_socket and we can return false
         if not len(message_header):
             return False
 
@@ -75,7 +89,8 @@ def sendToAll(message, client_socket):
                 remove(client)
 
 
-def clientthread(client_socket, client_address):
+# A thread that is made when a new user connects
+def clientThread(client_socket, client_address):
 
     new_user = getNewUser(client_socket)
 
@@ -95,7 +110,7 @@ def clientthread(client_socket, client_address):
             message = client_socket.recv(2048)
             message = message.decode('utf-8')
             if message:
-                print(username + " > " + message)
+                # print(username + " > " + message)
                 message_to_send = (username + " > " + message).encode('utf-8')
                 sendToAll(message_to_send, client_socket)
 
@@ -114,6 +129,6 @@ while True:
     clientList.append(client_socket)
 
     # Creates an individual thread for every user
-    process = Thread(target=clientthread, args=[client_socket, client_address])
+    process = Thread(target=clientThread, args=[client_socket, client_address])
     process.start()
     threads.append(process)

@@ -20,6 +20,18 @@ HEADER_LENGTH = 10
 # Let's connect to the server!
 client_socket.connect((IP, PORT))
 
+
+# Handling Ctrl+C in a very cool way
+import signal
+
+
+def sigint_handler(signum, frame):
+    print('\n Disconnecting from server')
+    sys.exit()
+
+
+signal.signal(signal.SIGINT, sigint_handler)
+
 # Getting the input of username
 # PLease choose a username that reflects your personality unlike hotshot07
 my_username = input("Username: ")
@@ -52,6 +64,9 @@ while True:
         # If socket == client_socket, we got a message!
         if socket == client_socket:
             message = socket.recv(2048)
+            if not len(message):
+                print("Connection closed by server")
+
             print(message.decode('utf-8'))
         else:
             # Else, we can send a message
