@@ -4,6 +4,7 @@ import socket
 # Importing thread to make it a multithreaded application
 from threading import Thread
 
+# For handling the CTRL-C input
 import sys
 
 # Setting up server_socket to set up TCP/IP and IPv4 protocol and
@@ -37,7 +38,6 @@ threads = []
 # Handling Ctrl+C in a very cool way
 import signal
 
-
 def sigint_handler(signum, frame):
     print('\n Server Shutting down')
     server_socket.close()
@@ -49,6 +49,8 @@ signal.signal(signal.SIGINT, sigint_handler)
 # Function to get username of the new user that connects to the server
 
 
+#----- FORMAT -----
+# 6.........Mayank
 def getNewUser(client_socket):
     try:
         # Receiving our "header" containing message length
@@ -87,7 +89,7 @@ def sendToAll(message, client_socket):
                 client.send(message)
             except:
                 print(f"{clients[client]} has left the application")
-                remove(client)
+                removeUser(client)
 
 
 # A thread that is made when a new user connects
@@ -119,13 +121,13 @@ def clientThread(client_socket, client_address):
             continue
 
 
-# Main Server always running acceptiong new connections
+# Main Server always running accepting new connections
+print("Server is now running")
 
-index = 0
 while True:
     # Accepting the socket and address of the client
     client_socket, client_address = server_socket.accept()
-    index += 1
+
     # Addding client_socket to the list
     clientList.append(client_socket)
 
