@@ -1,6 +1,6 @@
 # Computer Networks Project
 
-For my computer networks module in Trinity College Dublin, I have made a multithreaded chat application that sends messages to users instantly. I'm now working on adding security features like AES Encryption to the application.
+For my computer networks module in Trinity College Dublin, I have made a multithreaded chat application that sends messages to users instantly. This project was used to create the [final project](https://github.com/hotshot07/project2) for our Networks module.
 
 I have added a file dhkesim.py to simulate how a Diffie Hellman key exchange works. I would integrate it into the chat app later.
 
